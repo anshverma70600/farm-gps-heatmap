@@ -7,13 +7,6 @@
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-sA+eY6VRe6X4gjG0yF3y/qW+pO64yUBr4X5ibL+RkA8=" crossorigin=""/>
-    
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-VkmM4x1YmCDp1iX5hTqKuOCbVfX28KXyH8iCcw6X6uU=" crossorigin=""></script>
-
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
     html, body { height: 100%; margin: 0; }
@@ -24,43 +17,60 @@
 
 <div id="map"></div>
 
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-VkmM4x1YmCDp1iX5hTqKuOCbVfX28KXyH8iCcw6X6uU=" crossorigin=""></script>
+
 <script>
-  // Supabase setup
+  // Initialize Supabase
   const supabase = supabase.createClient(
     "https://engajsnpxgensgjzuffu.supabase.co",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZ2Fqc25weGdlbnNnanp1ZmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMzg0OTEsImV4cCI6MjA3OTcxNDQ5MX0.qGEb2kFvrxBrLvNoHwa4mRTTjiKRdq7-WOObu7jicNI"
   );
 
-  // Anonymous visitor ID
   const userId = "visitor_" + Math.random().toString(36).substr(2, 9);
 
   // Initialize Leaflet map
-  const map = L.map('map').setView([26.9124, 75.7873], 14); // replace with your coords
+  const map = L.map('map').setView([26.9124, 75.7873], 14);
 
   // Add OpenStreetMap tiles
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  // Watch GPS
-  navigator.geolocation.watchPosition(async position => {
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
+  // Add a test marker to confirm map loads
+  L.marker([26.9124, 75.7873]).addTo(map)
+    .bindPopup('Map loaded successfully!')
+    .openPopup();
 
-    // Add marker
-    L.marker([lat, lon]).addTo(map);
+  // GPS tracking
+  if ("geolocation" in navigator) {
+    navigator.geolocation.watchPosition(async position => {
+      try {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
 
-    // Save to Supabase
-    await supabase.from("visitor_locations").insert([
-      {
-        user_id: userId,
-        lat: lat,
-        lon: lon,
-        geom: `POINT(${lon} ${lat})`
+        // Add marker for current position
+        L.marker([lat, lon]).addTo(map)
+          .bindPopup('You are here!');
+
+        // Save location to Supabase
+        const { error } = await supabase.from("visitor_locations").insert([
+          { user_id: userId, lat: lat, lon: lon, geom: `POINT(${lon} ${lat})` }
+        ]);
+
+        if (error) console.error("Supabase insert error:", error);
+
+      } catch (err) {
+        console.error("Error updating location:", err);
       }
-    ]);
-
-  }, err => console.error(err), { enableHighAccuracy: true });
+    }, err => console.error("Geolocation error:", err), { enableHighAccuracy: true });
+  } else {
+    alert("Geolocation is not supported by your browser.");
+  }
 </script>
 
 </body>

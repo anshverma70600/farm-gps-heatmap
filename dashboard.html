@@ -6,15 +6,6 @@
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
-  <!-- Leaflet.heat plugin -->
-  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
     html, body { height: 100%; margin: 0; }
@@ -25,14 +16,23 @@
 
 <div id="map"></div>
 
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Leaflet.heat plugin -->
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
 <script>
-  // Supabase setup
+  // Initialize Supabase
   const supabase = supabase.createClient(
     "https://engajsnpxgensgjzuffu.supabase.co",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZ2Fqc25weGdlbnNnanp1ZmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMzg0OTEsImV4cCI6MjA3OTcxNDQ5MX0.qGEb2kFvrxBrLvNoHwa4mRTTjiKRdq7-WOObu7jicNI"
   );
 
-  // Initialize map
+  // Initialize Leaflet map
   const map = L.map('map').setView([26.9124, 75.7873], 14);
 
   // Add OpenStreetMap tiles
@@ -40,19 +40,31 @@
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  // Load visitor points and add heatmap
+  // Add a temporary marker to confirm map loads
+  L.marker([26.9124, 75.7873]).addTo(map)
+    .bindPopup('Heatmap will load here.')
+    .openPopup();
+
+  // Load visitor points and add heatmap safely
   async function loadHeatmap() {
-    const { data, error } = await supabase
-      .from("visitor_locations")
-      .select("lat, lon");
+    try {
+      const { data, error } = await supabase
+        .from("visitor_locations")
+        .select("lat, lon");
 
-    if (error) {
-      console.error(error);
-      return;
+      if (error) {
+        console.error("Supabase error:", error);
+        return;
+      }
+
+      if (!data || data.length === 0) return;
+
+      const heatData = data.map(p => [p.lat, p.lon, 0.5]); // lat, lon, intensity
+      L.heatLayer(heatData, {radius: 25, blur: 15, maxZoom: 17}).addTo(map);
+
+    } catch (err) {
+      console.error("Unexpected error loading heatmap:", err);
     }
-
-    const heatData = data.map(p => [p.lat, p.lon, 0.5]); // lat, lon, intensity
-    L.heatLayer(heatData, {radius: 25, blur: 15, maxZoom: 17}).addTo(map);
   }
 
   loadHeatmap();
