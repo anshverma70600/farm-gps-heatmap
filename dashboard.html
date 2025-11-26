@@ -4,14 +4,21 @@
   <title>Farm Visitor Heatmap</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.11.0/mapbox-gl.js"></script>
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.11.0/mapbox-gl.css" rel="stylesheet" />
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Leaflet.heat plugin -->
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
-    body, html { margin: 0; padding: 0; }
-    #map { width: 100vw; height: 100vh; }
+    html, body { height: 100%; margin: 0; }
+    #map { width: 100%; height: 100%; }
   </style>
 </head>
 <body>
@@ -19,48 +26,36 @@
 <div id="map"></div>
 
 <script>
-  mapboxgl.accessToken = "YOUR_MAPBOX_TOKEN";
-
+  // Supabase setup
   const supabase = supabase.createClient(
     "https://engajsnpxgensgjzuffu.supabase.co",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZ2Fqc25weGdlbnNnanp1ZmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMzg0OTEsImV4cCI6MjA3OTcxNDQ5MX0.qGEb2kFvrxBrLvNoHwa4mRTTjiKRdq7-WOObu7jicNI"
   );
 
-  const map = new mapboxgl.Map({
-    container: "map",
-    style: "mapbox://styles/mapbox/satellite-streets-v12",
-    center: [0, 0],
-    zoom: 14
-  });
+  // Initialize map
+  const map = L.map('map').setView([26.9124, 75.7873], 14);
 
-  map.on("load", async () => {
-    let { data } = await supabase.from("visitor_locations").select("lon, lat");
+  // Add OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-    map.addSource("visitors", {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        features: data.map(p => ({
-          type: "Feature",
-          geometry: {
-            type: "Point",
-            coordinates: [p.lon, p.lat]
-          }
-        }))
-      }
-    });
+  // Load visitor points and add heatmap
+  async function loadHeatmap() {
+    const { data, error } = await supabase
+      .from("visitor_locations")
+      .select("lat, lon");
 
-    map.addLayer({
-      id: "visitor-heat",
-      type: "heatmap",
-      source: "visitors",
-      paint: {
-        "heatmap-intensity": 2,
-        "heatmap-radius": 30,
-        "heatmap-opacity": 0.7
-      }
-    });
-  });
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const heatData = data.map(p => [p.lat, p.lon, 0.5]); // lat, lon, intensity
+    L.heatLayer(heatData, {radius: 25, blur: 15, maxZoom: 17}).addTo(map);
+  }
+
+  loadHeatmap();
 </script>
 
 </body>
